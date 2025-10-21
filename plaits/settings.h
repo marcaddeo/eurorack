@@ -33,6 +33,7 @@
 #include "stmlib/system/storage.h"
 
 #include "plaits/drivers/cv_adc.h"
+#include "plaits/dsp/voice.h"
 
 namespace plaits {
   
@@ -45,12 +46,6 @@ struct ChannelCalibrationData {
   }
 };
 
-struct PersistentData {
-  ChannelCalibrationData channel_calibration_data[CV_ADC_CHANNEL_LAST];
-  uint8_t padding[16];
-  enum { tag = 0x494C4143 };  // CALI
-};
-
 struct State {
   uint8_t engine;
   uint8_t lpg_colour;
@@ -59,8 +54,22 @@ struct State {
   uint8_t color_blind;
   uint8_t fine_tune;
   uint8_t enable_alt_navigation;
+  uint8_t preset;
   uint8_t padding[1];
   enum { tag = 0x54415453 };  // STAT
+};
+
+struct Preset {
+  Patch patch;
+  Modulations modulations;
+  State state;
+};
+
+struct PersistentData {
+  ChannelCalibrationData channel_calibration_data[CV_ADC_CHANNEL_LAST];
+  Preset presets[8];
+  uint8_t padding[16];
+  enum { tag = 0x494C4143 };  // CALI
 };
 
 class Settings {
@@ -79,6 +88,14 @@ class Settings {
   
   inline ChannelCalibrationData* mutable_calibration_data(int channel) {
     return &persistent_data_.channel_calibration_data[channel];
+  }
+
+  inline const Preset& preset(int preset) const {
+    return persistent_data_.presets[preset];
+  }
+
+  inline Preset* mutable_preset(int preset) {
+    return &persistent_data_.presets[preset];
   }
 
   inline const State& state() const {

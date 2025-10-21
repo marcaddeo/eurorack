@@ -157,6 +157,14 @@ void Init() {
     debug_port.Init();
   }
 #endif  // PROFILE_INTERRUPT
+  
+  Preset preset = settings.preset(0);
+  State* state = settings.mutable_state();
+
+  patch = preset.patch;
+  modulations = preset.modulations;
+  memcpy(state, &preset.state, sizeof(preset.state));
+  settings.SaveState();
 
   ui.Init(&patch, &modulations, &settings);
   

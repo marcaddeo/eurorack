@@ -61,7 +61,6 @@ struct State {
 
 struct Preset {
   Patch patch;
-  Modulations modulations;
   State state;
 };
 

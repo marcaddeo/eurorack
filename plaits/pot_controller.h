@@ -75,6 +75,10 @@ class PotController {
     scale_ = scale;
     offset_ = offset;
   }
+
+  inline bool locked() {
+    return state_ == POT_STATE_LOCKING || state_ == POT_STATE_HIDDEN_PARAMETER;
+  }
   
   inline void Lock() {
     if (state_ == POT_STATE_LOCKING || state_ == POT_STATE_HIDDEN_PARAMETER) {
@@ -97,7 +101,21 @@ class PotController {
       state_ = POT_STATE_TRACKING;
     }
   }
-  
+
+  inline void CatchUp() {
+    if (state_ != POT_STATE_CATCHING_UP) {
+      was_catching_up_ = state_ == POT_STATE_CATCHING_UP;
+      state_ = POT_STATE_CATCHING_UP;
+    }
+  }
+
+  inline void ToggleLock() {
+    if (locked()) {
+      Unlock();
+    } else {
+      Lock();
+    }
+  }
   inline void Realign() {
     state_ = POT_STATE_TRACKING;
   }

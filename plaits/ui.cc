@@ -30,6 +30,7 @@
 
 #include <algorithm>
 
+#include "dsp/voice.h"
 #include "stmlib/dsp/dsp.h"
 #include "stmlib/system/system_clock.h"
 
@@ -327,8 +328,28 @@ void Ui::ReadSwitches() {
         if (press_time_[0] >= kLongPressTime &&
             press_time_[1] >= kLongPressTime) {
           press_time_[0] = press_time_[1] = 0;
-          RealignPots();
-          StartCalibration();
+          ignore_release_[0] = true;
+          ignore_release_[1] = true;
+          // RealignPots();
+          // StartCalibration();
+          Preset preset = settings_->preset(1);
+          State* state = settings_->mutable_state();
+
+          memcpy(patch_, &preset.patch, sizeof(preset.patch));
+          memcpy(state, &preset.state, sizeof(preset.state));
+          enable_alt_navigation_ = preset.state.enable_alt_navigation;
+          settings_->SaveState(); // @todo do we need to save state?
+
+          pots_[POTS_ADC_CHANNEL_MORPH_POT].CatchUp();
+          pots_[POTS_ADC_CHANNEL_FREQUENCY_POT].CatchUp();
+          pots_[POTS_ADC_CHANNEL_HARMONICS_POT].CatchUp();
+          pots_[POTS_ADC_CHANNEL_TIMBRE_POT].CatchUp();
+          pots_[POTS_ADC_CHANNEL_MORPH_POT].CatchUp();
+          pots_[POTS_ADC_CHANNEL_TIMBRE_ATTENUVERTER].CatchUp();
+          pots_[POTS_ADC_CHANNEL_FM_ATTENUVERTER].CatchUp();
+          pots_[POTS_ADC_CHANNEL_MORPH_ATTENUVERTER].CatchUp();
+
+          break;
         }
         
         // Long press or actually editing any hidden parameter: display value

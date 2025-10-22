@@ -80,48 +80,6 @@ bool Settings::Init() {
   state_.fine_tune = 128;
   state_.preset = 0;
 
-  Patch test_patch;
-  test_patch.engine = 10;
-  test_patch.note = 48.0f;
-  test_patch.harmonics = 0.3f;
-  test_patch.timbre = 0.7f;
-  test_patch.morph = 0.7f;
-  test_patch.frequency_modulation_amount = 0.0f;
-  test_patch.timbre_modulation_amount = 0.0f;
-  test_patch.morph_modulation_amount = 0.0f;
-  test_patch.decay = 0.1f;
-  test_patch.lpg_colour = 0.0f;
-
-  Modulations test_modulations;
-  test_modulations.note = 0.0f;
-  test_modulations.engine = 0.0f;
-  test_modulations.frequency = 0.0f;
-  test_modulations.note = 0.0f;
-  test_modulations.harmonics = 0.0f;
-  test_modulations.morph = 0.0;
-  test_modulations.level = 1.0f;
-  test_modulations.trigger = 0.0f;
-  test_modulations.frequency_patched = false;
-  test_modulations.timbre_patched = false;
-  test_modulations.morph_patched = false;
-  test_modulations.trigger_patched = true;
-  test_modulations.level_patched = false;
-
-  State test_state;
-  test_state.engine = 10;
-  test_state.lpg_colour = 0;
-  test_state.decay = 128;
-  test_state.octave = 255;
-  test_state.color_blind = 0;
-  test_state.enable_alt_navigation = 1;
-  test_state.fine_tune = 128;
-  test_state.preset = 0;
-
-  Preset* presets = persistent_data_.presets;
-  presets[0].patch = test_patch;
-  presets[0].modulations = test_modulations;
-  presets[0].state = test_state;
-
   bool success = chunk_storage_.Init(&persistent_data_, &state_);
   
   CONSTRAIN(state_.engine, 0, 23);

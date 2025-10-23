@@ -49,6 +49,8 @@ const int kProbeSequenceDuration = 32;
 
 enum UiMode {
   UI_MODE_NORMAL,
+  UI_MODE_PRESET_MODE,
+  UI_MODE_PRESET_SAVE,
   UI_MODE_DISPLAY_ALTERNATE_PARAMETERS,
   UI_MODE_DISPLAY_OCTAVE,
   UI_MODE_DISPLAY_DATA_TRANSFER_PROGRESS,
@@ -103,6 +105,11 @@ class Ui {
   void DetectNormalization();
 
   void Navigate(int button);
+
+  void NavigatePreset();
+  void LoadPreset(int preset_number);
+  void SavePreset();
+
   uint32_t BankToColor(int bank, bool color_blind, int pwm_counter);
   
   void StartCalibration();

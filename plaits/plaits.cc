@@ -158,34 +158,6 @@ void Init() {
   }
 #endif  // PROFILE_INTERRUPT
 
-  Patch test_patch;
-  test_patch.engine = 15;
-  test_patch.note = 48.0f;
-  test_patch.harmonics = 0.3f;
-  test_patch.timbre = 0.7f;
-  test_patch.morph = 0.5f;
-  test_patch.frequency_modulation_amount = 0.0f;
-  test_patch.timbre_modulation_amount = 0.0f;
-  test_patch.morph_modulation_amount = 0.0f;
-  test_patch.decay = 0.1f;
-  test_patch.lpg_colour = 0.0f;
-
-  State test_state;
-  test_state.engine = 15;
-  test_state.lpg_colour = 0;
-  test_state.decay = 128;
-  test_state.octave = 255;
-  test_state.color_blind = 0;
-  test_state.enable_alt_navigation = 1;
-  test_state.fine_tune = 128;
-  test_state.preset = 0;
-
-  Preset* preset = settings.mutable_preset(1);
-  preset->patch = test_patch;
-  preset->state = test_state;
-
-  settings.SavePersistentData();
-
   ui.Init(&patch, &modulations, &settings);
   
   audio_dac.Init(48000, kBlockSize);

@@ -20,4 +20,3 @@ alias e := edit
 
 flash module="plaits":
     afplay build/{{ module }}/{{ module }}.wav
-    @echo "Complete."

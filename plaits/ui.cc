@@ -30,9 +30,11 @@
 
 #include <algorithm>
 
+#include "drivers/leds.h"
 #include "dsp/voice.h"
 #include "stmlib/dsp/dsp.h"
 #include "stmlib/system/system_clock.h"
+#include "ui.h"
 
 namespace plaits {
   
@@ -146,6 +148,16 @@ void Ui::UpdateLEDs() {
   triangle = triangle < 16 ? triangle : 31 - triangle;
 
   switch (mode_) {
+    case UI_MODE_PRESET_SAVE:
+      {
+        mode_ = UI_MODE_PRESET_MODE;
+        for (int i = 0; i < kNumLEDs; ++i) {
+          leds_.set(i, LED_COLOR_GREEN);
+        }
+      }
+      break;
+
+    case UI_MODE_PRESET_MODE:
     case UI_MODE_NORMAL:
       {
         const bool color_blind = settings_->state().color_blind == 1;
@@ -165,6 +177,17 @@ void Ui::UpdateLEDs() {
 
         leds_.set(active_row, active_color);
         leds_.mask(selected_row, selected_color);
+
+        // @TODO this doesn't account for when the preset and the selected_row are the same.
+        if (mode_ == UI_MODE_PRESET_MODE) {
+          uint32_t preset_number_color = LED_COLOR_GREEN;
+
+          if (selected_color == preset_number_color) {
+            preset_number_color = LED_COLOR_RED;
+          }
+
+          leds_.set(settings_->state().preset % 8, preset_number_color);
+        }
       }
       break;
     
@@ -287,10 +310,59 @@ void Ui::Navigate(int button) {
   SaveState();
 }
 
+void Ui::NavigatePreset() {
+  ignore_release_[0] = ignore_release_[1] = true;
+  RealignPots();
+  LoadPreset(settings_->state().preset + 1);
+  SaveState();
+}
+
+void Ui::LoadPreset(int preset_number) {
+  preset_number = preset_number % 8;
+
+  State* state = settings_->mutable_state();
+  Preset preset = settings_->preset(preset_number);
+
+  if (preset.patched) {
+    memcpy(patch_, &preset.patch, sizeof(preset.patch));
+    memcpy(state, &preset.state, sizeof(preset.state));
+
+    transposition_ = preset.transposition;
+    LoadState();
+
+    pots_[POTS_ADC_CHANNEL_MORPH_POT].CatchUp();
+    pots_[POTS_ADC_CHANNEL_FREQUENCY_POT].CatchUp();
+    pots_[POTS_ADC_CHANNEL_HARMONICS_POT].CatchUp();
+    pots_[POTS_ADC_CHANNEL_TIMBRE_POT].CatchUp();
+    pots_[POTS_ADC_CHANNEL_MORPH_POT].CatchUp();
+    pots_[POTS_ADC_CHANNEL_TIMBRE_ATTENUVERTER].CatchUp();
+    pots_[POTS_ADC_CHANNEL_FM_ATTENUVERTER].CatchUp();
+    pots_[POTS_ADC_CHANNEL_MORPH_ATTENUVERTER].CatchUp();
+  }
+
+  state->preset = preset_number;
+}
+
+void Ui::SavePreset() {
+  State state = settings_->state();
+  Preset* preset = settings_->mutable_preset(state.preset);
+  preset->transposition = transposition_;
+  preset->patched = true;
+
+  memcpy(&preset->patch, patch_, sizeof(*patch_));
+  memcpy(&preset->state, &state, sizeof(state));
+
+  settings_->SavePersistentData();
+}
+
 void Ui::ReadSwitches() {
   switches_.Debounce();
   
   switch (mode_) {
+    case UI_MODE_PRESET_SAVE:
+      break;
+
+    case UI_MODE_PRESET_MODE:
     case UI_MODE_NORMAL:
       {
         for (int i = 0; i < SWITCH_LAST; ++i) {
@@ -323,35 +395,23 @@ void Ui::ReadSwitches() {
             pots_[POTS_ADC_CHANNEL_FREQUENCY_POT].editing_hidden_parameter()) {
           mode_ = UI_MODE_DISPLAY_OCTAVE;
         }
-        
-        // Long, double press: enter calibration mode.
+
+        // Long, double press: toggle preset mode.
         if (press_time_[0] >= kLongPressTime &&
             press_time_[1] >= kLongPressTime) {
           press_time_[0] = press_time_[1] = 0;
-          ignore_release_[0] = true;
-          ignore_release_[1] = true;
-          // RealignPots();
-          // StartCalibration();
-          Preset preset = settings_->preset(1);
-          State* state = settings_->mutable_state();
+          ignore_release_[0] = ignore_release_[1] = true;
 
-          memcpy(patch_, &preset.patch, sizeof(preset.patch));
-          memcpy(state, &preset.state, sizeof(preset.state));
-          enable_alt_navigation_ = preset.state.enable_alt_navigation;
-          settings_->SaveState(); // @todo do we need to save state?
-
-          pots_[POTS_ADC_CHANNEL_MORPH_POT].CatchUp();
-          pots_[POTS_ADC_CHANNEL_FREQUENCY_POT].CatchUp();
-          pots_[POTS_ADC_CHANNEL_HARMONICS_POT].CatchUp();
-          pots_[POTS_ADC_CHANNEL_TIMBRE_POT].CatchUp();
-          pots_[POTS_ADC_CHANNEL_MORPH_POT].CatchUp();
-          pots_[POTS_ADC_CHANNEL_TIMBRE_ATTENUVERTER].CatchUp();
-          pots_[POTS_ADC_CHANNEL_FM_ATTENUVERTER].CatchUp();
-          pots_[POTS_ADC_CHANNEL_MORPH_ATTENUVERTER].CatchUp();
+          if (mode_ == UI_MODE_PRESET_MODE) {
+            mode_ = UI_MODE_NORMAL;
+          } else {
+            mode_ = UI_MODE_PRESET_MODE;
+            LoadPreset(settings_->state().preset);
+          }
 
           break;
         }
-        
+
         // Long press or actually editing any hidden parameter: display value
         // of hidden parameters.
         if (press_time_[0] >= kLongPressTime && !press_time_[1]) {
@@ -365,11 +425,20 @@ void Ui::ReadSwitches() {
         
         if ((switches_.released(Switch(0)) && !ignore_release_[0] && press_time_[1] > 0) || (switches_.released(Switch(1)) && !ignore_release_[1] && press_time_[0] > 0)) {
           ignore_release_[0] = ignore_release_[1] = true;
-          RealignPots();
-          enable_alt_navigation_ = !enable_alt_navigation_;
-          SaveState();
+          if (mode_ == UI_MODE_PRESET_MODE) {
+            mode_ = UI_MODE_PRESET_SAVE;
+            SavePreset();
+          } else {
+            RealignPots();
+            enable_alt_navigation_ = !enable_alt_navigation_;
+            SaveState();
+          }
         } else if (switches_.released(Switch(0)) && !ignore_release_[0]) {
-          Navigate(0);
+          if (mode_ == UI_MODE_PRESET_MODE) {
+            NavigatePreset();
+          } else {
+            Navigate(0);
+          }
         } else if (switches_.released(Switch(1)) && !ignore_release_[1]) {
           Navigate(1);
         }

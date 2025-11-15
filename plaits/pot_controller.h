@@ -76,6 +76,22 @@ class PotController {
     offset_ = offset;
   }
 
+  inline float value() {
+    return value_;
+  }
+
+  inline float* mutable_value() {
+    return &value_;
+  }
+
+  inline float* mutable_previous_value() {
+    return &previous_value_;
+  }
+
+  inline PotState state() {
+    return state_;
+  }
+
   inline bool locked() {
     return state_ == POT_STATE_LOCKING || state_ == POT_STATE_HIDDEN_PARAMETER;
   }
@@ -103,10 +119,16 @@ class PotController {
   }
 
   inline void CatchUp() {
-    if (state_ != POT_STATE_CATCHING_UP) {
-      was_catching_up_ = state_ == POT_STATE_CATCHING_UP;
-      state_ = POT_STATE_CATCHING_UP;
-    }
+    // was_catching_up_ = state_ == POT_STATE_CATCHING_UP;
+    // previous_value_ = value_;
+    // stored_value_ = previous_value_;
+    // if (fabsf(value_ - previous_value_) > 0.03f) {
+    //   stored_value_ = previous_value_;
+    //   *hidden_parameter_ = value_;
+    //   state_ = POT_STATE_HIDDEN_PARAMETER;
+    //   previous_value_ = value_;
+    // }
+    state_ = POT_STATE_CATCHING_UP;
   }
 
   inline void ToggleLock() {

@@ -29,9 +29,12 @@
 #include "plaits/ui.h"
 
 #include <algorithm>
+#include <cstring>
 
 #include "drivers/leds.h"
+#include "drivers/pots_adc.h"
 #include "dsp/voice.h"
+#include "pot_controller.h"
 #include "stmlib/dsp/dsp.h"
 #include "stmlib/system/system_clock.h"
 #include "ui.h"
@@ -44,6 +47,7 @@ using namespace stmlib;
 static const int32_t kLongPressTime = 2000;
 
 void Ui::Init(Patch* patch, Modulations* modulations, Settings* settings) {
+  preset_ = 0;
   patch_ = patch;
   modulations_ = modulations;
   settings_ = settings;
@@ -186,7 +190,7 @@ void Ui::UpdateLEDs() {
             preset_number_color = LED_COLOR_RED;
           }
 
-          leds_.set(settings_->state().preset % 8, preset_number_color);
+          leds_.set(preset_ % 8, preset_number_color);
         }
       }
       break;
@@ -313,8 +317,8 @@ void Ui::Navigate(int button) {
 void Ui::NavigatePreset() {
   ignore_release_[0] = ignore_release_[1] = true;
   RealignPots();
-  LoadPreset(settings_->state().preset + 1);
-  SaveState();
+  // LoadPreset((preset_ + 1) % 8);
+  // SaveState();
 }
 
 void Ui::LoadPreset(int preset_number) {
@@ -324,30 +328,58 @@ void Ui::LoadPreset(int preset_number) {
   Preset preset = settings_->preset(preset_number);
 
   if (preset.patched) {
+    memset(patch_, 0, sizeof(preset.patch));
     memcpy(patch_, &preset.patch, sizeof(preset.patch));
+    memset(state, 0, sizeof(preset.state));
     memcpy(state, &preset.state, sizeof(preset.state));
 
-    transposition_ = preset.transposition;
+    // transposition_ = preset.transposition;
+    // transposition_ = static_cast<float>(preset.transposition) / 256.0f;
     LoadState();
 
-    pots_[POTS_ADC_CHANNEL_MORPH_POT].CatchUp();
-    pots_[POTS_ADC_CHANNEL_FREQUENCY_POT].CatchUp();
-    pots_[POTS_ADC_CHANNEL_HARMONICS_POT].CatchUp();
-    pots_[POTS_ADC_CHANNEL_TIMBRE_POT].CatchUp();
-    pots_[POTS_ADC_CHANNEL_MORPH_POT].CatchUp();
-    pots_[POTS_ADC_CHANNEL_TIMBRE_ATTENUVERTER].CatchUp();
-    pots_[POTS_ADC_CHANNEL_FM_ATTENUVERTER].CatchUp();
-    pots_[POTS_ADC_CHANNEL_MORPH_ATTENUVERTER].CatchUp();
+    // pots_[POTS_ADC_CHANNEL_MORPH_POT].CatchUp();
+    // pots_[POTS_ADC_CHANNEL_FREQUENCY_POT].CatchUp();
+    // pots_[POTS_ADC_CHANNEL_HARMONICS_POT].CatchUp();
+    // pots_[POTS_ADC_CHANNEL_TIMBRE_POT].CatchUp();
+    // pots_[POTS_ADC_CHANNEL_MORPH_POT].CatchUp();
+    // pots_[POTS_ADC_CHANNEL_TIMBRE_ATTENUVERTER].CatchUp();
+    // pots_[POTS_ADC_CHANNEL_FM_ATTENUVERTER].CatchUp();
+    // pots_[POTS_ADC_CHANNEL_MORPH_ATTENUVERTER].CatchUp();
+
+    // @bug im pretty sure its specifically something to do with the freq knob,
+    // and possibly related to catching up/locking. Possibly the freq knob just
+    // doesn't support locking. When I set all pots to 100%, and freq to 50%
+    // and save it, and then cycle presets, the freq/note/octave change to be
+    // higher pitched every time (until it hits a max i think) you apply the
+    // preset. when resetting freq to 0 and putting to 50%, all knobs start
+    // working with their expected preset values. it's almost like when the
+    // FREQ pot is in POT_STATE_CATCHING_UP (or _not_ POT_STATE_TRACKING),
+    // _something_ different happens. Need to look further into it.
+    // @test: just stop storing/touching the freq knob and see if it works.
+
+    // for (int i = POTS_ADC_CHANNEL_FREQUENCY_POT; i < POTS_ADC_CHANNEL_LAST; i++) {
+    //   pots_[i].CatchUp();
+    //   // *pots_[i].mutable_previous_value() = preset.pots[i];
+    // }
   }
 
-  state->preset = preset_number;
+  // preset_ = preset_number;
 }
 
 void Ui::SavePreset() {
+  SaveState();
   State state = settings_->state();
-  Preset* preset = settings_->mutable_preset(state.preset);
-  preset->transposition = transposition_;
+  Preset* preset = settings_->mutable_preset(preset_);
+  preset->transposition = static_cast<uint8_t>(transposition_ * 256.0f);
   preset->patched = true;
+
+  for (int i = POTS_ADC_CHANNEL_FREQUENCY_POT; i < POTS_ADC_CHANNEL_LAST; i++) {
+    if (pots_[i].state() != POT_STATE_TRACKING) {
+      continue;
+    }
+
+    preset->pots[i] = pots_[i].value();
+  }
 
   memcpy(&preset->patch, patch_, sizeof(*patch_));
   memcpy(&preset->state, &state, sizeof(state));
@@ -404,9 +436,18 @@ void Ui::ReadSwitches() {
 
           if (mode_ == UI_MODE_PRESET_MODE) {
             mode_ = UI_MODE_NORMAL;
+            enable_alt_navigation_ = previous_enable_alt_navigation_;
+            RealignPots();
           } else {
             mode_ = UI_MODE_PRESET_MODE;
-            LoadPreset(settings_->state().preset);
+            previous_enable_alt_navigation_ = enable_alt_navigation_;
+            enable_alt_navigation_ = 1;
+            // pots_[POTS_ADC_CHANNEL_TIMBRE_POT].Unlock();
+            // pots_[POTS_ADC_CHANNEL_MORPH_POT].Unlock();
+            // pots_[POTS_ADC_CHANNEL_HARMONICS_POT].Unlock();
+            // pots_[POTS_ADC_CHANNEL_FREQUENCY_POT].Unlock();
+            // press_time_[1] = press_time_[0] = 0;
+            // LoadPreset(preset_);
           }
 
           break;
@@ -435,7 +476,7 @@ void Ui::ReadSwitches() {
           }
         } else if (switches_.released(Switch(0)) && !ignore_release_[0]) {
           if (mode_ == UI_MODE_PRESET_MODE) {
-            NavigatePreset();
+            // NavigatePreset();
           } else {
             Navigate(0);
           }

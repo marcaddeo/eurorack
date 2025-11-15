@@ -33,6 +33,7 @@
 #include "stmlib/system/storage.h"
 
 #include "plaits/drivers/cv_adc.h"
+#include "plaits/drivers/pots_adc.h"
 #include "plaits/dsp/voice.h"
 
 namespace plaits {
@@ -54,14 +55,14 @@ struct State {
   uint8_t color_blind;
   uint8_t fine_tune;
   uint8_t enable_alt_navigation;
-  uint8_t preset;
   enum { tag = 0x54415453 };  // STAT
 };
 
 struct Preset {
   Patch patch;
   State state;
-  float transposition;
+  uint8_t transposition;
+  float pots[POTS_ADC_CHANNEL_LAST];
   bool patched;
   uint8_t padding[3];
 };
@@ -69,6 +70,7 @@ struct Preset {
 struct PersistentData {
   ChannelCalibrationData channel_calibration_data[CV_ADC_CHANNEL_LAST];
   Preset presets[8];
+  uint8_t padding[16];
   enum { tag = 0x494C4143 };  // CALI
 };
 

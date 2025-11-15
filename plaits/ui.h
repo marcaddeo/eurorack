@@ -154,7 +154,9 @@ class Ui {
   bool ignore_release_[SWITCH_LAST];
   
   int active_engine_;
+  int preset_;
   bool enable_alt_navigation_;
+  bool previous_enable_alt_navigation_;
   
   float cv_c1_;  // For calibration
   

@@ -78,7 +78,6 @@ bool Settings::Init() {
   state_.color_blind = 0;
   state_.enable_alt_navigation = 0;
   state_.fine_tune = 128;
-  state_.preset = 0;
 
   bool success = chunk_storage_.Init(&persistent_data_, &state_);
   
